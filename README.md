@@ -1,2 +1,2 @@
 # CatchThePinkFlamingoCapston
-Solve Big Data capston "Catch the pink flamingo"
+UCSanDeigo Big Data capston "Catch the pink flamingo"
