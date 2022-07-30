@@ -1,0 +1,130 @@
+CREATE CONSTRAINT ON (u:User) ASSERT u.id IS UNIQUE; 
+CREATE CONSTRAINT ON (t:Team) ASSERT t.id IS UNIQUE; 
+CREATE CONSTRAINT ON (c:TeamChatSession) ASSERT c.id IS UNIQUE; 
+CREATE CONSTRAINT ON (i:ChatItem) ASSERT i.id IS UNIQUE; 
+
+
+
+LOAD CSV FROM "file:///chat_create_team_chat.csv" AS row 
+MERGE (u:User {id: toInteger(row[0])}) MERGE (t:Team {id: toInteger(row[1])}) 
+MERGE (c:TeamChatSession {id: toInteger(row[2])}) 
+MERGE (u)-[:CreatesSession{timeStamp: row[3]}]->(c) 
+MERGE (c)-[:OwnedBy{timeStamp: row[3]}]->(t) 
+
+
+
+
+LOAD CSV FROM "file:///chat_join_team_chat.csv" AS row 
+MERGE (u:User {id: toInteger(row[0])})
+MERGE (c:TeamChatSession {id: toInteger(row[1])})
+MERGE (u)-[:Joins{timeStamp: row[2]}]->(c)
+
+
+
+LOAD CSV FROM "file:///chat_leave_team_chat.csv" AS row 
+MERGE (u:User {id: toInteger(row[0])})
+MERGE (c:TeamChatSession {id: toInteger(row[1])})
+MERGE (u)-[:Leaves{timeStamp: row[2]}]->(c)
+
+
+
+
+LOAD CSV FROM "file:///chat_item_team_chat.csv" AS row 
+MERGE (u:User {id: toInteger(row[0])}) 
+MERGE (c:TeamChatSession {id: toInteger(row[1])}) 
+MERGE (i:ChatItem {id: toInteger(row[2])}) 
+MERGE (u)-[:CreateChat{timeStamp: row[3]}]->(i) 
+MERGE (i)-[:PartOf{timeStamp: row[3]}]->(c) 
+
+
+
+
+LOAD CSV FROM "file:///chat_mention_team_chat.csv" AS row 
+MERGE (i:ChatItem {id: toInteger(row[0])})
+MERGE (u:User {id: toInteger(row[1])})
+MERGE (i)-[:Mentioned{timeStamp: row[2]}]->(u)
+
+
+
+
+LOAD CSV FROM "file:///chat_respond_team_chat.csv" AS row 
+MERGE (i1:ChatItem {id: toInteger(row[0])})
+MERGE (i2:ChatItem {id: toInteger(row[1])})
+MERGE (i1)-[:ResponseTo{timeStamp: row[2]}]->(i2)
+
+
+
+MATCH p=()-->() RETURN p LIMIT 25
+
+
+
+match p=(a)-[:ResponseTo*]->(b)
+return p,length(p)
+order by length(p) desc limit 1
+
+
+
+match p=(c:ChatItem)-[:ResponseTo*]->(j:ChatItem)
+where length(p) = 9
+with p
+match q=(u:User)-[:CreateChat]-(c:ChatItem)
+where (c in NODES(p))
+return count(DISTINCT u)
+
+
+
+
+match (u:User)-[:CreateChat]-(i:ChatItem)
+return u.id as Users , count(u.id) as Num_Chats
+order by count(u.id) desc limit 10
+
+
+
+match (:ChatItem)-[:PartOf]-(:TeamChatSession)-[:OwnedBy]-(t:Team)
+return t.id as Teams , count(t.id) as Num_Chats
+order by count(t.id) desc limit 10
+
+
+
+match (u:User)-[:CreateChat]-(:ChatItem)-[:PartOf]-(:TeamChatSession)-[:OwnedBy]-(t:Team)
+where u.id in [394,2067,1087,209,554,1627,999,516,668,461]
+and t.id in [82,185,112,18,194,129,52,136,146,81]
+return distinct u.id as User , t.id as Team
+
+
+
+match (u1:User)-[:CreateChat]->(:ChatItem)-[:Mentioned]->(u2:User)
+merge (u1)-[:InteractsWith]->(u2)
+
+
+
+match (u1:User)-[:CreateChat]->(:ChatItem)-[:ResponseTo]-(:ChatItem)<-[:CreateChat]-(u2:User)
+merge (u1)-[:InteractsWith]->(u2)
+
+
+
+MATCH (u1)-[r:InteractsWith]->(u2) where u1.id=u2.id detach DELETE r
+
+
+match (u1:User{id:394})-[:InteractsWith]->(u2:User)
+with collect(u2.id) as neighbours, count(u2) as k
+match (u3:User)-[iw:InteractsWith]->(u4:User)
+where (u3.id in (neighbours)) and (u4.id in (neighbours))
+return count(iw)/(k * (k - 1) * 1.0) as ClusterCoefficient
+
+
+
+match (u1:User{id:2067})-[:InteractsWith]->(u2:User)
+with collect(u2.id) as neighbours, count(u2) as k
+match (u3:User)-[iw:InteractsWith]->(u4:User)
+where (u3.id in (neighbours)) and (u4.id in (neighbours))
+return count(iw)/(k * (k - 1) * 1.0) as ClusterCoefficient
+
+
+
+
+match (u1:User{id:209})-[:InteractsWith]->(u2:User)
+with collect(u2.id) as neighbours, count(u2) as k
+match (u3:User)-[iw:InteractsWith]->(u4:User)
+where (u3.id in (neighbours)) and (u4.id in (neighbours))
+return count(iw)/(k * (k - 1) * 1.0) as ClusterCoefficient
